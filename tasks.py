@@ -9,9 +9,9 @@ def handle_all_items():
             print("Received payload:", item.payload)
             # Process the item here
             # Example: Modify the payload or perform actions based on its content
-            extract_news_data(item)
+            # extract_news_data(item)
 
-@task
+
 def extract_news_data(workitem):
     # Assuming the current work item has the required parameters
     item = workitems.inputs.current
