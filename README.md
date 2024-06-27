@@ -1,52 +1,80 @@
-# Template: Python - Minimal
+# Template: Python - Producer-Consumer
 
 This template leverages the new [Python framework](https://github.com/robocorp/robocorp), the [libraries](https://github.com/robocorp/robocorp/blob/master/docs/README.md#python-libraries) from to same project as well.
 
-The template provides you with the basic structure of a Python project: logging out of the box and controlling your tasks without fiddling with the base Python stuff. The environment contains the most used libraries, so you do not have to start thinking about those right away. 
+This template contains a working robot implementation that has the basic structure where the first part produces work items from an input and the second one consumes those newly created output work items.
 
-👉 Other templates are available as well via our tooling and on our [Portal](https://robocorp.com/portal/tag/template)
+![process.png](./docs/process.png)
 
-## Running
+The template tries to keep the amount of functional code at a minimum so you have less to clear out and replace with your own implementation, but some functional logic is needed to have the template working and guiding the key parts.
 
-#### VS Code
-1. Get [Robocorp Code](https://robocorp.com/docs/developer-tools/visual-studio-code/extension-features) -extension for VS Code.
-1. You'll get an easy-to-use side panel and powerful command-palette commands for running, debugging, code completion, docs, etc.
+> We recommended checking out the article "[Using work items](https://robocorp.com/docs/development-guide/control-room/work-items)" before diving in.
 
-#### Command line
+## Tasks
 
-1. [Get RCC](https://github.com/robocorp/rcc?tab=readme-ov-file#getting-started)
-1. Use the command: `rcc run`
+The robot is split into two tasks, meant to run as separate steps in Control Room. The first task generates (produces) data, and the second one reads (consumes) and processes that data.
 
-## Results
+### The first task (the producer)
 
-🚀 After running the bot, check out the `log.html` under the `output` -folder.
+- Load the example Excel file from work item
+- Split the Excel file into work items for the consumer
 
-## Dependencies
+### The second task (the consumer)
 
-We strongly recommend getting familiar with adding your dependencies in [conda.yaml](conda.yaml) to control your Python dependencies and the whole Python environment for your automation.
+> We recommended checking out the article "[Work item exception handling](https://robocorp.com/docs/development-guide/control-room/work-items#work-item-exception-handling)" before diving in.
 
-<details>
-  <summary>🙋‍♂️ "Why not just pip install...?"</summary>
+- Loop through all work items in the queue and access the payloads from the previous step
 
-Think of [conda.yaml](conda.yaml) as an equivalent of the requirements.txt, but much better. 👩‍💻 With `conda.yaml`, you are not just controlling your PyPI dependencies; you control the complete Python environment, which makes things repeatable and easy.
+## Local testing
 
-👉 You will probably need to run your code on another machine quite soon, so by using `conda.yaml`:
-- You can avoid `Works on my machine` -cases
-- You do not need to manage Python installations on all the machines
-- You can control exactly which version of Python your automation will run on 
-  - You'll also control the pip version to avoid dep. resolution changes
-- No need for venv, pyenv, ... tooling and knowledge sharing inside your team.
-- Define dependencies in conda.yaml, let our tooling do the heavy lifting.
-- You get all the content of [conda-forge](https://prefix.dev/channels/conda-forge) without any extra tooling
+For best experience to test the work items in this example we recommend using [Robocorp Code -extensions for VS Code](https://robocorp.com/docs/developer-tools/visual-studio-code/extension-features). With the Robocorp Code extension you can simply run and [select the input work items](https://robocorp.com/docs/developer-tools/visual-studio-code/extension-features#using-work-items) to use, create inputs to simulate error cases, and so on.
 
-> Dive deeper with [these](https://github.com/robocorp/rcc/blob/master/docs/recipes.md#what-is-in-condayaml) resources.
+## Extending the template
 
-</details>
-<br/>
+> The [producer-consumer](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem) model is not limited to two steps, it can continue so that the consumer generates further work items for the next step and so on.
 
-> The full power of [rpaframework](https://robocorp.com/docs/python/rpa-framework) -libraries is also available on Python as a backup while we implement the new Python libraries.
+Here's how you can add a third step, let's say a **reporter**, which will collect inputs from the previous one (the **consumer**) and generate a simple report with the previously created data. But first, see below what you need to add extra:
 
-## What now?
+### The `reporter` step code
+
+```python
+@task
+def reporter():
+    """Collect and combine all the consumer outputs into a single report."""
+    complete_orders = sum("complete" in item.payload["Order"] for item in workitems.inputs)
+    print(f"Complete orders: {complete_orders}")
+```
+
+And as you can see, we collect some `"Order"` info from the previously created outputs, but we don't have yet such outputs created in the previous step (the **consumer**), so let's create them:
+
+```python
+@task
+def consumer():
+    """Process all the produced input Work Items from the previous step."""
+    for item in workitems.inputs:
+        try:
+            ...
+            workitems.outputs.create(payload={"Order": f"{name} is complete"})
+            item.done()
+        except AssertionError as err:
+            ...
+```
+
+The magic happens in this single line added right before the `item.done()` part: `workitems.outputs.create(payload={"Order": f"{name} is complete"})`. This creates a new output for every processed input with an `"Order"` field in the payload data. This is retrieved in the next step (**reporter**) through `item.payload["Order"]`.
+
+### The `reporter` task entry
+
+All good on the code side, but we need now to make this new task visible and runnable right in our [*robot.yaml*](./robot.yaml) configuration. So add this under `tasks:`:
+
+```yaml
+Reporter:
+    shell: python -m robocorp.tasks run tasks.py -t reporter
+```
+
+Now you're good to go, just run the **consumer** again (so you'll have output items created), then run the newly introduced 3rd step called **reporter**.
+
+
+----
 
 🚀 Now, go get'em
 
