@@ -33,14 +33,19 @@ def handle_all_items():
     
     for item in workitems.inputs:
         try:
-            payload = {
-                "topic": "automation",
-                "category": "Lifestyle",
-                "months": "24"
-            }
-            worktitem = workitems.outputs.create(payload)
-            validate_data(worktitem)
-            extract_news_data(worktitem)
+            item = workitems.inputs.current
+            # payload = {
+            #     "topic": "summer",
+            #     "category": "Lifestyle",
+            #     "months": "24"
+            # }
+            # worktitem = workitems.outputs.create(payload)
+            # validate_data(worktitem)
+            # extract_news_data(worktitem)
+            item = workitems.inputs.current
+            validate_data(item)
+            extract_news_data(item)        
+            item.done()
         except BusinessException as e:
             logging.error(f"Business error occurred: {e}")
             # Handle business logic failure, e.g., by setting the work item to fail
@@ -181,8 +186,14 @@ def fetch_news(search_phrase, category, months):
             # print("Selector "+item.query_selector("img").inner_html())
             # page.wait_for_selector(item.query_selector("img"), timeout=timedelta(seconds=30))
              
-            img_src = fetch_image_src_with_retry(item)
-            print(img_src)
+            #img_src = fetch_image_src_with_retry(item)
+            
+            img_selector = item.wait_for_selector("//div[@data-testid='Image']//img")
+
+            # print("Image selector "+img_selector.as_element())  
+            img_src = img_selector.get_attribute("src")
+            
+
             parsed_url = urlparse(img_src)
             filename = "output/images/"+os.path.basename(parsed_url.path)
             download_image(img_src, filename)
@@ -208,8 +219,7 @@ def fetch_news(search_phrase, category, months):
         time.sleep(random.randint(5, 10))
     # To print the table to verify
     save_to_excel(table, filename="output.xlsx")
-    for row in table:
-        print(row) 
+
 
 # Function to extract title, date, and description
 def extract_info(text, search_phrase):
