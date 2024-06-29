@@ -9,8 +9,20 @@ import time
 import re
 import random
 from dateutil.relativedelta import relativedelta
+import requests
+from urllib.parse import urlparse
+import os
+import shutil
 @task
 def handle_all_items():
+    
+    directory_path = "output/images/"
+
+    # Remove the directory if it exists, then recreate it
+    if os.path.exists(directory_path):
+        shutil.rmtree(directory_path)
+    os.makedirs(directory_path)
+    
     for item in workitems.inputs:
         try:
             payload = {
@@ -88,13 +100,13 @@ def extract_news_data(workitem):
     # Example function to fetch news data (to be implemented)
     news_data = fetch_news(search_phrase, news_category, number_of_months)
     
-    # Writing the fetched news data to the /output directory as JSON
-    output_path = "/output/news_data.json"
-    with open(output_path, "w") as file:
-        json.dump(news_data, file)
+    # # Writing the fetched news data to the /output directory as JSON
+    # output_path = "/output/news_data.json"
+    # with open(output_path, "w") as file:
+    #     json.dump(news_data, file)
     
-    # Creating an output work item with the path to the saved news data
-    workitems.outputs.create(payload={"news_data_path": output_path})
+    # # Creating an output work item with the path to the saved news data
+    # workitems.outputs.create(payload={"news_data_path": output_path})
 
 def fetch_news(search_phrase, category, months):
     date_pattern = r"(\w+)\s(\d{1,2}),\s(\d{4})"
@@ -135,8 +147,10 @@ def fetch_news(search_phrase, category, months):
     #Select category
     page.click(f"(//*[@data-testid='EnhancedSelect'])[1]")
     page.click(f"(//*[@data-testid='EnhancedSelect'])[1]//span[text()='{category}']")
+    time.sleep(5)
     search_next_page = True
     list_items = []
+
     
     while search_next_page:
         # Use a CSS selector with a partial match for the class name to find the <ul>
@@ -145,20 +159,25 @@ def fetch_news(search_phrase, category, months):
         
         # Extracting the text from each list item and storing in a list
 
-        for item in list_items_locator.element_handles():
+        for item in list_items_locator.element_handles(): 
             text = item.inner_text()
             match = re.search(date_pattern, text)
             if match:
-                # Extract the date components
-                month, day, year = match.groups()
-                # Convert the extracted date to a datetime object
-                extracted_date = datetime.strptime(f"{day} {month} {year}", "%d %B %Y")
-
+                title, extracted_date = extract_info(text)
                 if extracted_date.date() < start_date.date():
                     search_next_page = False
                     break
+            # print("Selector "+item.query_selector("img").inner_html())
+            # page.wait_for_selector(item.query_selector("img"), timeout=timedelta(seconds=30))   
+            img_src = item.query_selector("img").get_attribute("src")
+            print(img_src)
+            parsed_url = urlparse(img_src)
+            filename = "output/images/"+os.path.basename(parsed_url.path)
+            download_image(img_src, filename)
             list_items.append(text)
-                 
+        
+        if not search_next_page:
+            break         
         # Check if the right arrow button is disabled      
         right_arrow_button_locator = page.locator("//*[@data-testid='SvgChevronRight']/ancestor::button[1]")
 
@@ -169,3 +188,32 @@ def fetch_news(search_phrase, category, months):
         time.sleep(random.randint(5, 10))
     print(list_items)    
 
+# Function to extract title, date, and description
+def extract_info(text):
+    date_match = re.search(r"(\w+)\s(\d{1,2}),\s(\d{4})", text)
+    if date_match:
+        # Extract the date components
+        month, day, year = date_match.groups()
+        # Convert the extracted date to a datetime object
+        extracted_date = datetime.strptime(f"{day} {month} {year}", "%d %B %Y")
+        
+        #Extracted title
+        parts = text.split('\n')
+        title = parts[1] if len(parts) > 1 else ''
+        
+        return title, extracted_date,
+    return '', ''
+
+def download_image(url: str, filename: str ): 
+    """
+    Downloads an image from the specified URL and saves it as a file.
+
+    Args:
+        url: The URL of the image to download.
+        filename: The name of the file to save the image to.
+    """
+
+    response = requests.get(url)
+    response.raise_for_status()  # Ensure the request was successful
+    with open(filename, 'wb') as file:
+        file.write(response.content)
