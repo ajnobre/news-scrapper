@@ -34,7 +34,7 @@ def handle_all_items():
     for item in workitems.inputs:
         try:
             payload = {
-                "topic": "summer",
+                "topic": "automation",
                 "category": "Lifestyle",
                 "months": "24"
             }
@@ -165,11 +165,12 @@ def fetch_news(search_phrase, category, months):
     while search_next_page:
         # Use a CSS selector with a partial match for the class name to find the <ul>
         # and then select all <li> elements within it
-        list_items_locator = page.locator("//ul[contains(@class, 'search-results__list__')]/li")
-        
+        #list_items_locator = page.locator("//ul[contains(@class, 'search-results__list__')]/li")
+        list_items_locator = page.query_selector_all("//ul[contains(@class, 'search-results__list__')]/li")
         # Extracting the text from each list item and storing in a list
 
-        for item in list_items_locator.element_handles(): 
+        for item in list_items_locator: 
+            item.scroll_into_view_if_needed()
             text = item.inner_text()
             match = re.search(date_pattern, text)
             if match:
@@ -178,8 +179,9 @@ def fetch_news(search_phrase, category, months):
                     search_next_page = False
                     break
             # print("Selector "+item.query_selector("img").inner_html())
-            # page.wait_for_selector(item.query_selector("img"), timeout=timedelta(seconds=30))   
-            img_src = item.query_selector("img").get_attribute("src")
+            # page.wait_for_selector(item.query_selector("img"), timeout=timedelta(seconds=30))
+             
+            img_src = fetch_image_src_with_retry(item)
             print(img_src)
             parsed_url = urlparse(img_src)
             filename = "output/images/"+os.path.basename(parsed_url.path)
@@ -203,8 +205,7 @@ def fetch_news(search_phrase, category, months):
             search_next_page = False
         else:
             right_arrow_button_locator.click()
-            time.sleep(10)
-        #time.sleep(random.randint(5, 10))
+        time.sleep(random.randint(5, 10))
     # To print the table to verify
     save_to_excel(table, filename="output.xlsx")
     for row in table:
@@ -230,6 +231,27 @@ def extract_info(text, search_phrase):
         contains_money_pattern = bool(re.search(money_pattern, title))
         return title, extracted_date, count_search_phrase, contains_money_pattern
     return '', '', 0, False
+
+def fetch_image_src_with_retry(item, retries=3):
+    attempt = 0
+    while attempt < retries:
+        try:
+            # Use the Playwright API to interact with the web elements
+            img_selector = item.wait_for_selector("//div[@data-testid='Image']//img")
+
+            # print("Image selector "+img_selector.as_element())  
+            img_src = img_selector.get_attribute("src")
+            if img_src:
+                return img_src
+        except Exception as e:
+            html_content = img_selector.evaluate("element => element.outerHTML")
+            print("Element "+html_content)
+            print(f"Attempt {attempt+1} failed: {str(e)}")
+            # browser.page().reload()  # Refresh the page or item
+            time.sleep(1)  # Wait a bit before retrying
+            attempt += 1
+    
+    raise Exception(f"Failed to fetch image src after {retries} attempts")
 
 def download_image(url: str, filename: str ): 
     """
