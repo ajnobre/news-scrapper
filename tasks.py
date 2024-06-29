@@ -17,13 +17,16 @@ from RPA.Tables import Tables
 from RPA.Excel.Files import Files
 @task
 def handle_all_items():
-    
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     directory_path = "output/images/"
 
     # Remove the directory if it exists, then recreate it
+    logging.info(f"Removing existing output files.")
     if os.path.exists(directory_path):
+        
         shutil.rmtree(directory_path)
     os.makedirs(directory_path)
+
     
     file_path = "output/output.xlsx"
 
@@ -34,6 +37,7 @@ def handle_all_items():
     for item in workitems.inputs:
         try:
             item = workitems.inputs.current
+            logging.info(f"Processing item: {item}")
             # payload = {
             #     "topic": "summer",
             #     "category": "Lifestyle",
@@ -46,6 +50,7 @@ def handle_all_items():
             validate_data(item)
             extract_news_data(item)        
             item.done()
+            logging.info(f"Item processed successfully: {item}")
         except BusinessException as e:
             logging.error(f"Business error occurred: {e}")
             # Handle business logic failure, e.g., by setting the work item to fail
@@ -56,6 +61,7 @@ def handle_all_items():
             item.fail(code="APPLICATION_ERROR", message=str(e))
         except Exception as e:
             logging.error(f"Unexpected error occurred: {e}")
+            
             # Handle unexpected errors
             item.fail(code="UNEXPECTED_ERROR", message="An unexpected error occurred.")
         # with item:  # This context manager automatically handles reserving and releasing the item
@@ -122,15 +128,18 @@ def extract_news_data(workitem):
     # workitems.outputs.create(payload={"news_data_path": output_path})
 
 def fetch_news(search_phrase, category, months):
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info("Starting fetch_news function")
     date_pattern = r"(\w+)\s(\d{1,2}),\s(\d{4})"
     # Calculate the date range for the news articles
     end_date = datetime.now()
     start_date = end_date - relativedelta(months=int(months))
-    
+    logging.info(f"Searching for news from {start_date} to {end_date}")
     # Initialize the browser and open Reuters.com
     browser.configure(slowmo=100)
     page = browser.page()
     page.goto("https://www.reuters.com/")
+    logging.info("Opened Reuters.com")
     
     # Introduce a human-like delay
     
@@ -138,12 +147,20 @@ def fetch_news(search_phrase, category, months):
     # Accept cookies if necessary
     try:
         page.locator("#onetrust-accept-btn-handler").click()
+        logging.info("Accepted cookies")
     except Exception:
+        page.screenshot(path="output/error_screenshot.png")
         pass  # If the popup doesn't show up, ignore
     
     # Navigate to the search page and enter the search phrase
     #Click on search icon
-    page.click("//*[name()='path' and contains(@fill-rule,'evenodd')]")
+    try:
+        page.click("//*[name()='path' and contains(@fill-rule,'evenodd')]")
+        logging.info("Clicked on search icon")
+    except Exception:
+        page.screenshot(path="output/error_screenshot.png")
+        pass  # If the popup doesn't show up, ignore
+    
     
     
     input_locator = page.locator("//*[@data-testid='FormField:input']")
