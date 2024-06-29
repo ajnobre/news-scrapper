@@ -13,6 +13,8 @@ import requests
 from urllib.parse import urlparse
 import os
 import shutil
+from RPA.Tables import Tables
+from RPA.Excel.Files import Files
 @task
 def handle_all_items():
     
@@ -23,10 +25,16 @@ def handle_all_items():
         shutil.rmtree(directory_path)
     os.makedirs(directory_path)
     
+    file_path = "output/output.xlsx"
+
+    # Remove the file if it exists
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
     for item in workitems.inputs:
         try:
             payload = {
-                "topic": "automation",
+                "topic": "summer",
                 "category": "Lifestyle",
                 "months": "24"
             }
@@ -150,7 +158,9 @@ def fetch_news(search_phrase, category, months):
     time.sleep(5)
     search_next_page = True
     list_items = []
-
+     # Initialize the Tables library
+    headers = ['title', 'date', 'description', 'picture filename', 'count of search phrases', 'contains money']
+    table = Tables().create_table(columns=headers)
     
     while search_next_page:
         # Use a CSS selector with a partial match for the class name to find the <ul>
@@ -163,7 +173,7 @@ def fetch_news(search_phrase, category, months):
             text = item.inner_text()
             match = re.search(date_pattern, text)
             if match:
-                title, extracted_date = extract_info(text)
+                title, extracted_date, count_search_phrase, contains_money_pattern = extract_info(text, search_phrase)
                 if extracted_date.date() < start_date.date():
                     search_next_page = False
                     break
@@ -174,7 +184,15 @@ def fetch_news(search_phrase, category, months):
             parsed_url = urlparse(img_src)
             filename = "output/images/"+os.path.basename(parsed_url.path)
             download_image(img_src, filename)
-            list_items.append(text)
+            table.append_row([
+                title,
+                extracted_date.date().strftime("%d-%m-%Y") if extracted_date else '',
+                '',
+                filename,  
+                count_search_phrase,
+                contains_money_pattern
+            ])
+
         
         if not search_next_page:
             break         
@@ -185,11 +203,15 @@ def fetch_news(search_phrase, category, months):
             search_next_page = False
         else:
             right_arrow_button_locator.click()
-        time.sleep(random.randint(5, 10))
-    print(list_items)    
+            time.sleep(10)
+        #time.sleep(random.randint(5, 10))
+    # To print the table to verify
+    save_to_excel(table, filename="output.xlsx")
+    for row in table:
+        print(row) 
 
 # Function to extract title, date, and description
-def extract_info(text):
+def extract_info(text, search_phrase):
     date_match = re.search(r"(\w+)\s(\d{1,2}),\s(\d{4})", text)
     if date_match:
         # Extract the date components
@@ -201,8 +223,13 @@ def extract_info(text):
         parts = text.split('\n')
         title = parts[1] if len(parts) > 1 else ''
         
-        return title, extracted_date,
-    return '', ''
+        count_search_phrase = title.lower().count(search_phrase.lower())
+        
+         # Regular expression to match various money formats
+        money_pattern = r"(\$[0-9,]+(\.[0-9]{1,2})?)|([0-9]+ (dollars|USD))"
+        contains_money_pattern = bool(re.search(money_pattern, title))
+        return title, extracted_date, count_search_phrase, contains_money_pattern
+    return '', '', 0, False
 
 def download_image(url: str, filename: str ): 
     """
@@ -217,3 +244,24 @@ def download_image(url: str, filename: str ):
     response.raise_for_status()  # Ensure the request was successful
     with open(filename, 'wb') as file:
         file.write(response.content)
+        
+def save_to_excel(table, filename):
+    """_summary_
+
+    Args:
+        table (_type_): _description_
+        filename (_type_): _description_
+    """
+     # Initialize the Excel file handler
+    excel = Files()
+    
+    # Create a new Excel workbook and add a worksheet
+    excel.create_workbook("output/output.xlsx")
+    
+    # Write the table to the first worksheet
+    # Assuming your table data is in a format compatible with the Excel Files library
+    excel.append_rows_to_worksheet(table, header=True)
+    
+    # Save and close the workbook
+    excel.save_workbook()
+    excel.close_workbook()
