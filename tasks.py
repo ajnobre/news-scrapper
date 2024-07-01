@@ -208,6 +208,21 @@ class NewsScrapper:
         raise Exception(f"Failed to fetch image src after {retries} attempts")
 
     def extract_info(self, text, search_phrase):
+        """
+        Extracts information from the given text.
+
+        Args:
+            text (str): The text from which to extract information.
+            search_phrase (str): The phrase to search for in the title.
+
+        Returns:
+            tuple: A tuple containing the extracted title, extracted date, count of search phrase in title,
+                   and a boolean indicating whether the title contains a money pattern.
+
+        Raises:
+            None
+
+        """
         logging.info("Extracting information from text")
         date_match = re.search(r"(\w+)\s(\d{1,2}),\s(\d{4})", text)
         if date_match:
@@ -245,6 +260,18 @@ class NewsScrapper:
         return "", "", 0, False
 
     def process_search_results(self, page, start_date, search_phrase):
+        """
+        Process the search results page, extract and download news data.
+
+        Args:
+            page (Page): The web page containing the search results.
+            start_date (datetime): The start date to filter the news.
+            search_phrase (str): The search phrase to filter the news.
+
+        Returns:
+            Table: The table containing the extracted news data.
+
+        """
         logging.info("Starting to extract and download news")
         date_pattern = r"(\w+)\s(\d{1,2}),\s(\d{4})"
         search_next_page = True
@@ -334,13 +361,6 @@ class Utils:
 
     @staticmethod
     def download_image(url, filename):
-        """
-        Downloads an image from the specified URL and saves it as a file.
-
-        Args:
-            url: The URL of the image to download.
-            filename: The name of the file to save the image to.
-        """
 
         response = requests.get(url)
         logging.info(f"Attempting to download content from {url}")
@@ -352,10 +372,18 @@ class Utils:
 
     @staticmethod
     def save_to_excel(table, filename):
+        """
+        Save the extracted news data to an Excel workbook.
 
-        logging.info(
-            "Saving extracted news data to Excel workbook 'output/output.xlsx"
-        )
+        Args:
+            table (list): The table containing the extracted news data.
+            filename (str): The name of the Excel file to be created.
+
+        Returns:
+            None
+        """
+        logging.info("Saving extracted news data to Excel workbook 'output/output.xlsx'")
+        
         # Initialize the Excel file handler
         excel = Files()
 
