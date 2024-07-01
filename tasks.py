@@ -42,7 +42,6 @@ def main():
 
     for item in workitems.inputs:
         try:
-            item = workitems.inputs.current
             logging.info(f"Processing item: {item}")
             item = workitems.inputs.current
 
