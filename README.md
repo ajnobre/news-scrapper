@@ -14,6 +14,8 @@ The template provides you with the basic structure of a Python project: logging 
 
 #### VS Code
 
+Please be aware that while this robot can run on a local machine, it is not designed to run on Robocloud's remote machines. This is due to the fact that executing it in such an environment triggers robot detection mechanisms on the chosen website, reuters.com. Addressing this issue would exceed the scope of the current project.
+
 1. Get [Robocorp Code](https://robocorp.com/docs/developer-tools/visual-studio-code/extension-features) -extension for VS Code.
 1. You'll get an easy-to-use side panel and powerful command-palette commands for running, debugging, code completion, docs, etc.
 
